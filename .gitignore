@@ -1,0 +1,17 @@
+*.pdf
+*.log
+*.lot
+*.lof
+*.toc
+*.bbl
+*.blg
+*.acr
+*.smb
+*.aux
+*.fdb_latexmk
+*.fls
+greedy_ssp
+p_greedy_ssp
+amdahl_greedy_ssp
+__pycache__
+inputs

@@ -1,0 +1,347 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{listings}
+\floatname{algorithm}{Algoritmo}
+\renewcommand{\algorithmicfor}{\textbf{Para}}
+\renewcommand{\algorithmicwhile}{\textbf{Enquanto}}
+\renewcommand{\algorithmicif}{\textbf{Se}}
+\renewcommand{\algorithmicthen}{\textbf{então}}
+\renewcommand{\algorithmicelse}{\textbf{Senão}}
+\renewcommand{\algorithmicend}{\textbf{Fim}}
+\renewcommand{\algorithmicdo}{\textbf{faça}}
+\renewcommand{\tablename}{TABELA}
+\renewcommand{\lstlistingname}{Código}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\lstdefinestyle{ieee}{
+    language=C++,
+    basicstyle=\ttfamily\footnotesize, 
+    numbers=none,                      
+    frame=single,                      
+    breaklines=true,                   
+    breakatwhitespace=true,
+    columns=flexible,
+    keepspaces=true,
+    aboveskip=6pt,
+    belowskip=6pt,
+    captionpos=b,    
+    backgroundcolor=\color{gray!5},    
+    rulecolor=\color{gray!30},         
+}
+
+\begin{document}
+
+\title{Trabalho 1 de programação paralela 2025/2}
+
+\author{\IEEEauthorblockN{André Schueda Menezes (GRR20211785)}
+\IEEEauthorblockA{\textit{Departamento de informática} \\
+\textit{Universidade federal do Paraná}\\
+Curitiba, Brasil \\
+asm21@dinf.ufpr.br}
+}
+
+\maketitle
+
+\begin{abstract}
+
+Este relatório apresenta o estudo e implementação paralela do algoritmo para o Problema da
+Supersequência Mais Curta (SSP). O trabalho aborda estratégias de paralelização utilizando OpenMP e analisa o desempenho do algoritmo em diferentes configurações de execução. A abordagem visa compreender a escalabilidade e eficiência da solução paralela em comparação com a versão sequencial.
+
+\end{abstract}
+
+\begin{IEEEkeywords}
+Problema da Supersequência Mais Curta, Computação Paralela, OpenMP, Otimização de Algoritmos
+\end{IEEEkeywords}
+
+\section{Introdução}
+
+O Problema da Supersequência Mais Curta (Shortest Superstring Problem - SSP) é um problema clássico que pertence a classe de complexidade NP-Difícil\cite{gallant1980finding}, tendo diversas aplicações como em compressão de dados\cite{storer1982data} e montagem de sequências genômicas\cite{gusfield1997algorithms}.
+
+Este trabalho, desenvolvido para a disciplina de Programação Paralela (CI1316), consiste em analisar algoritmos para o problema e suas limitações, bem como desenvolver uma versão paralela utilizando \textbf{OpenMP}\cite{dagum1998openmp} e analisar os ganhos de desempenho. Para isso são utilizadas métricas como \textbf{\textit{speedup}} e \textbf{eficiência} tal como a comparação com limites teóricos como a \textbf{Lei de Amdahl}\cite{amdahl1967validity}.
+
+As seções seguintes deste relatório serão organizadas da seguinte maneira:
+\begin{itemize}
+    \item Na seção \ref{sec:teorica} é feita uma análise teórica do algoritmo guloso dado, bem como suas limitações.
+    \item Na seção \ref{sec:paralela} é apresentada a abordagem para paralelização para o algoritmo.
+    \item Na seção \ref{sec:metodologia} é apresentada a metodologia para os experimentos, assim como as especificações de Hardware, sistema operacional e demais especificações.
+    \item Na seção \ref{sec:resultados} são apresentados e discutidos os resultados obtidos a partir das experimentações.
+    \item Na seção \ref{sec:conclusao} são feitas as considerações finais sobre o trabalho.
+
+\end{itemize}
+
+\section{Análise teórica}
+\label{sec:teorica}
+Seja \(S = \{s_1, s_2, \dots, s_n\}\) o conjunto de sequências de entrada, onde nenhuma sequência é subsequência de outra. O problema da supersequência mais curta tem como objetivo encontrar uma sequência de tamanho mínimo que contenha todas as sequências de S como subsequência.
+
+O algoritmo guloso para a construção da supersequência mais curta é definido a seguir:
+
+\begin{algorithm}[H]
+\caption{Supersequência Mais Curta Guloso(S)}
+\label{alg:ssp_greedy}
+\begin{algorithmic}[1]
+\STATE $T \gets S$
+\WHILE{$|T| > 1$}
+    \STATE Escolha $a, b \in T$ com maior sobreposição
+    \STATE Remova $a$ e $b$ de $T$
+    \STATE Insira sobreposição de $a$ e $b$ em $T$
+\ENDWHILE
+\STATE \textbf{Retorne} única string em $T$
+\end{algorithmic}
+\end{algorithm}
+
+A sobreposição de um par $a, b$ é definida como o comprimento máximo de um sufixo de $a$ que coincide com um prefixo de $b$.
+
+Em outros termos, o algoritmo funciona juntando palavras de maior sobreposição, até que só reste uma palavra em $T$. A palavra restante é então retornada como resposta do algoritmo.
+
+A complexidade do algoritmo \ref{alg:ssp_greedy} é definida pelo número de sequências da entrada multiplicado pela quantidade de passos necessários para achar o par com maior sobreposição. Em termos assintóticos, a quantidade de sequências da entrada é definida por $n$. A quantidade de passos necessários para achar o par com maior sobreposição é \(O(n^2 * m)\), onde $m$ é o tamanho máximo de caracteres em uma sequência da entrada. Portanto, a complexidade do algoritmo \ref{alg:ssp_greedy} é \(O(n^3 * m)\).
+
+Como o Problema da Supersequência Mais Curta é NP-Difícil\cite{gallant1980finding}, não é conhecido algoritmo que compute a resposta exata para o problema em tempo polinomial. Dessa forma, o algoritmo guloso apresentado não garante a resposta exata do problema ao ser executado.
+
+A rigor, Blum et al.\cite{blum1994linear} provaram que a resposta do algoritmo guloso para o SSP nunca tem tamanho maior que 4 vezes a resposta exata da instância, e é conjecturado que o algoritmo nunca tem resposta de tamanho maior que 2 vezes o tamanho da resposta exata \cite{tarhio1988greedy}.
+
+Para exemplificar casos em que a resposta do algoritmo não é exata, uma entrada em que dois ou mais pares tem mesmo valor de sobreposição, a escolha de pares diferentes resulta em respostas diferentes. Este é o caso para a entrada \(S =  \{acc, ccb, ccc\}\). Caso na primeira iteração seja selecionado o par $acc, ccb$, a resposta final do algoritmo será $accbccc$. No entanto, caso na primeira iteração seja selecionado o par $acc, ccc$, tem-se como resposta a sequência $acccb$.
+
+O exemplo anterior evidencia que a paralelização do algoritmo guloso pode ter diferentes respostas para diferentes execuções de uma mesma instância, uma vez que a ordem de escolha dos elementos com maior sobreposição pode estar sujeita a ordem de execução das \textit{threads}.
+
+\section{Abordagem para paralelização}
+\label{sec:paralela}
+
+O algoritmo~\ref{alg:ssp_greedy} apresenta um laço \textbf{\textit{Enquanto}} que dificilmente pode ser paralelizado. Isso porque, cada iteração do laço depende das alterações em $T$ realizadas pela iteração anterior. Dessa forma, os esforços para paralelização se concentram principalmente em encontrar o par de maior sobreposição.
+
+Para encontrar o par de maior sobreposição, são executados dois laços aninhados, que comparam todos os elementos de $T$ entre si. Como a comparação entre elementos é independente, é possível paralelizar esse trecho do código. a diferença entre o código sequencial e o paralelo pode ser vista a seguir:
+
+\begin{lstlisting}[style=ieee, caption={Implementação sequencial}]
+auto highest_overlap(const std::vector<std::string>& words) -> std::tuple<std::size_t, std::size_t, int> {
+    int max_overlap = -1;
+    std::size_t max_i = 0, max_j = 0;
+    for (size_t i = 0; i < words.size(); i++) {
+        for (size_t j = 0; j < words.size(); j++) {
+            if (i == j) continue;
+            int ol = overlap(words[i], words[j]);
+            if (ol > max_overlap) {
+                max_i = i;
+                max_j = j;
+                max_overlap = ol;
+            }
+        }
+    }
+    return {max_i, max_j, max_overlap};
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=ieee, caption={Implementação paralela}]
+auto highest_overlap(const std::vector<std::string>& words) -> std::tuple<std::size_t, std::size_t, int> {
+    int max_overlap = -1;
+    std::size_t max_i = 0, max_j = 0;
+
+    #pragma omp parallel
+    {
+        int l_max_overlap = -1;
+        size_t l_max_i = 0, l_max_j = 0;
+
+        #pragma omp for collapse(2)
+        for (size_t i = 0; i < words.size(); i++) {
+            for (size_t j = 0; j < words.size(); j++) {
+                if (i == j) continue;
+                int ol = overlap(words[i], words[j]);
+                if (ol > l_max_overlap) {
+                    l_max_i = i;
+                    l_max_j = j;
+                    l_max_overlap = ol;
+                }
+            }
+        }
+
+        #pragma omp critical
+        {
+            if(l_max_overlap > max_overlap) {
+                max_i = l_max_i;
+                max_j = l_max_j;
+                max_overlap = l_max_overlap;
+            }
+        }
+    }
+    return {max_i, max_j, max_overlap};
+}
+\end{lstlisting}
+
+As principais diferenças entre a implementação sequencial e a paralela são: a presença da diretiva para criação de \textit{threads} \texttt{\#pragma omp parallel}, a declaração de variáveis locais das \textit{threads}, a diretiva para paralelização dos laços \texttt{\#pragma omp for collapse(2)} e a diretiva \texttt{\#pragma omp critical} para a escrita nas variáveis compartilhadas.
+
+Outro trecho do código que poderia ser paralelizado é o cálculo da sobreposição entre elementos. No entanto, como o tamanho das palavras é limitado a 256 caracteres, a paralelização teria menor poder de escalabilidade. A tentativa de paralelizar ambos os trechos não teria sucesso, uma vez que a criação de mais \textit{threads} para paralelizar o cálculo faria com que houvesse um aumento significativo no \textit{overhead} de controle das \textit{threads}.
+
+\section{Metodologia Experimental}
+\label{sec:metodologia}
+Os experimentos foram realizados em uma máquina \textit{Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz}, que apresenta 6 núcleos físicos com 2 \textit{threads}, cada, totalizando 12 \textit{threads}. O sistema operacional utilizado foi o \textit{Ubuntu 24.04.3 LTS}, com kernel na versão \textit{6.17.1-2-t2-noble}. 
+
+Para executar os experimentos, a máquina foi inicializada no modo \textit{multi-user}, de forma que a interface gráfica não fosse carregada. Além disso foram desativadas as interfaces de rede e bluetooth para evitar interrupções. A execução do comando 
+\begin{lstlisting}[language=sh, breaklines=true]
+echo "1" | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo 
+\end{lstlisting}
+Foi realizada para que o \textit{Turbo Boost} fosse desativado.
+
+Os programas foram compilados com \textit{g++ (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0} utilizando as flags \texttt{-std=c++11 -Wall -O3 -fopenmp}.
+
+Para orquestrar a execução do algoritmo com diferentes números de \textit{threads} e diferentes entradas, foi escrito um \textit{script} em \textit{Python}. Para cada combinação de tamanho de entrada, tamanho de palavra e número de \textit{threads}, o \textit{script} realizou 20 execuções. Foram realizados experimentos para entradas de tamanho 250, 500, 750, 1000, e palavras de tamanho 10, 128 e 256. Além disso o algoritmo foi testado para execuções de 1 a 12 \textit{threads}, além da execução do algoritmo puramente sequencial e a execução para o cálculo do \textit{speedup} de acordo com a Lei de Amdahl\cite{amdahl1967validity}.
+
+Como exposto na seção~\ref{sec:paralela}, a parte paralelizável do algoritmo está concentrada na subrotina que encontra o par de maior sobreposição. Por isso, para calcular o máximo \textit{speedup} teórico, de acordo com a Lei de Amdahl\cite{amdahl1967validity}, foram realizadas 20 execuções para cada combinação de entrada, medindo o tempo em que a execução ocorria naquele trecho, e a partir disso, calculando a proporção de tempo em regiões paralelizáveis do programa.
+
+Por fim, para validação dos resultados do algoritmo, foi desenvolvido outro \textit{script} em \textit{Python} que calcula o tamanho da \textit{string} resultante, e confere se todas as \textit{strings} da entrada estão presentes na \textit{string de saída}. Dessa forma, é possível validar o funcionamento do algoritmo mesmo que sua saída possa variar de acordo com a ordem de execução das \textit{threads}.
+
+\section{Resultados}
+\label{sec:resultados}
+
+Os resultados obtidos na experimentação são apresentados e discutidos a seguir. 
+
+A tabela~\ref{tab:tempos} expõe os tempos obtidos a partir das execuções do algoritmo para as diferentes entradas com diferentes números de \textit{threads}. Nela é possível notar alguns resultados interessantes. Primeiramente, o tempo de execução para uma única \textit{thread} do código paralelizado foi menor que o tempo de execução sequencial, o que é inesperado, já que o \textit{overhead} de criação das \textit{threads} tende a deixar a execução mais lenta. É possível que o compilador tenha realizado alguma otimização quando compilando as diretivas do openMP, o que não ocorreu quando compilando somente com a flag \texttt{-O3}. Além disso, é possível observar que o tempo de execução de 7 a 9 \textit{threads} é maior do que o tempo de execução para 6 \textit{threads}. Isso provavelmente se deve ao compartilhamento de cache das \textit{threads} por conta do \textit{Simultaneous Multi-Threading}. A partir do momento em que todos os núcleos já estão ocupados, alguns núcleos estarão ocupados por duas \textit{threads}, que irão competir pela cache, aumentando o número de \textit{misses}.
+
+A tabela~\ref{tab:speedup} apresenta os resultados dos cálculos do \textit{speedup}. O \textit{speedup} é a razão entre o tempo sequencial e o tempo paralelo. Ao comparar a tabela~\ref{tab:speedup} com a tabela~\ref{tab:amdahl}, é possível notar que o \textit{speedup} obtido da experimentação é muito próximo do máximo \textit{speedup} teórico para as execuções com até 6 \textit{threads}. Com mais que 6 threads, o \textit{Simultaneous Multi-Threading} começa a ser utilizado, e por isso o \textit{speedup} obtido é menor do que máximo teórico.
+
+A tabela~\ref{tab:eficiencia} apresenta os resultados dos cálculos da eficiência. A eficiência é a razão entre o \textit{speedup} e o número de processadores utilizados. A tabela~\ref{tab:eficiencia} evidencia que a eficiência tem uma queda considerável quando o \textit{Simultaneous Multi-Threading} está em uso. Além disso é possível notar que a abordagem para paralelização do algoritmo guloso apresenta escalabilidade forte, uma vez que a eficiência se manteve constante ao adicionar mais threads, exceto pela queda de eficiência devido ao \textit{Simultaneous Multi-Threading}.
+
+Por fim, a tabela~\ref{tab:tamanhos} apresenta os tamanhos encontrados para as \textit{strings} de saída do algoritmo. É possível observar que para todos os casos, o tamanho da \textit{string} resultante encontrada pelo algoritmo paralelizado é muito próximo do tamanho encontrado pelo algoritmo sequencial. Para alguns casos, como para a entrada com 1000 palavras de tamanho 256, os resultados encontrados pelo algoritmo paralelo foram melhores (encontraram uma supersequência mais curta) que o algoritmo sequencial.
+
+\begin{table*}[htbp]
+\centering
+\caption{Tempos de execução para diferentes números de \textit{threads} e diferentes entradas e tamanhos de palavra}
+\label{tab:tempos}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|c|c|c|c|c|c|c|c|c|c|c|c|c|}
+\toprule
+entrada/palavra & Sequencial & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & 11 & 12 \\
+\midrule
+\textbf{250/10} & 0.32 ± 0.00 & 0.29 ± 0.00 & 0.15 ± 0.00 & 0.10 ± 0.00 & 0.08 ± 0.00 & 0.06 ± 0.00 & 0.05 ± 0.00 & 0.06 ± 0.00 & 0.05 ± 0.00 & 0.05 ± 0.00 & 0.05 ± 0.01 & 0.04 ± 0.00 & 0.04 ± 0.00 \\
+\textbf{250/128} & 3.70 ± 0.03 & 3.39 ± 0.03 & 1.72 ± 0.01 & 1.17 ± 0.03 & 0.89 ± 0.01 & 0.72 ± 0.01 & 0.60 ± 0.00 & 0.73 ± 0.01 & 0.65 ± 0.01 & 0.59 ± 0.02 & 0.53 ± 0.00 & 0.49 ± 0.02 & 0.45 ± 0.01 \\
+\textbf{250/256} & 7.96 ± 0.06 & 7.16 ± 0.05 & 3.63 ± 0.04 & 2.45 ± 0.03 & 1.88 ± 0.03 & 1.50 ± 0.03 & 1.27 ± 0.03 & 1.50 ± 0.02 & 1.34 ± 0.02 & 1.21 ± 0.02 & 1.09 ± 0.01 & 1.00 ± 0.02 & 0.93 ± 0.04 \\
+\textbf{500/10} & 2.43 ± 0.03 & 2.22 ± 0.03 & 1.11 ± 0.00 & 0.75 ± 0.00 & 0.57 ± 0.02 & 0.46 ± 0.00 & 0.38 ± 0.00 & 0.46 ± 0.02 & 0.40 ± 0.00 & 0.36 ± 0.01 & 0.32 ± 0.00 & 0.30 ± 0.00 & 0.27 ± 0.00 \\
+\textbf{500/128} & 28.41 ± 0.06 & 26.49 ± 0.08 & 13.43 ± 0.08 & 9.06 ± 0.08 & 6.88 ± 0.04 & 5.57 ± 0.05 & 4.67 ± 0.05 & 5.73 ± 0.04 & 5.08 ± 0.04 & 4.56 ± 0.03 & 4.12 ± 0.03 & 3.79 ± 0.03 & 3.50 ± 0.07 \\
+\textbf{500/256} & 61.94 ± 0.09 & 56.29 ± 0.10 & 28.39 ± 0.11 & 19.21 ± 0.11 & 14.56 ± 0.09 & 11.71 ± 0.07 & 9.85 ± 0.08 & 11.86 ± 0.13 & 10.55 ± 0.10 & 9.46 ± 0.05 & 8.53 ± 0.05 & 7.83 ± 0.06 & 7.23 ± 0.10 \\
+\textbf{750/10} & 7.94 ± 0.05 & 7.26 ± 0.05 & 3.68 ± 0.04 & 2.46 ± 0.02 & 1.87 ± 0.03 & 1.49 ± 0.01 & 1.25 ± 0.03 & 1.49 ± 0.01 & 1.32 ± 0.01 & 1.18 ± 0.01 & 1.07 ± 0.02 & 0.98 ± 0.02 & 0.91 ± 0.04 \\
+\textbf{750/128} & 94.03 ± 0.15 & 88.50 ± 0.17 & 45.07 ± 0.25 & 30.35 ± 0.14 & 23.20 ± 0.10 & 18.64 ± 0.11 & 15.74 ± 0.07 & 19.49 ± 0.36 & 17.28 ± 0.16 & 15.45 ± 0.11 & 14.00 ± 0.07 & 12.75 ± 0.07 & 11.86 ± 0.11 \\
+\textbf{750/256} & 206.15 ± 0.15 & 188.91 ± 0.36 & 95.26 ± 0.48 & 64.29 ± 0.33 & 48.58 ± 0.22 & 39.32 ± 0.23 & 33.02 ± 0.12 & 39.84 ± 0.48 & 35.63 ± 0.30 & 31.86 ± 0.30 & 28.82 ± 0.19 & 26.19 ± 0.14 & 24.32 ± 0.14 \\
+\textbf{1000/10} & 18.31 ± 0.07 & 16.77 ± 0.06 & 8.53 ± 0.08 & 5.73 ± 0.05 & 4.31 ± 0.04 & 3.46 ± 0.04 & 2.88 ± 0.03 & 3.47 ± 0.03 & 3.07 ± 0.02 & 2.74 ± 0.02 & 2.47 ± 0.03 & 2.25 ± 0.02 & 2.09 ± 0.05 \\
+\textbf{1000/128} & 221.71 ± 0.18 & 211.10 ± 0.24 & 107.04 ± 0.34 & 71.71 ± 0.32 & 54.26 ± 0.30 & 43.78 ± 0.21 & 36.76 ± 0.14 & 45.60 ± 0.71 & 40.85 ± 0.39 & 36.65 ± 0.32 & 32.98 ± 0.20 & 30.11 ± 0.20 & 27.85 ± 0.16 \\
+\textbf{1000/256} & 488.18 ± 0.19 & 449.44 ± 0.69 & 226.79 ± 0.99 & 152.07 ± 0.78 & 114.84 ± 0.42 & 92.96 ± 0.41 & 78.05 ± 0.38 & 93.40 ± 0.82 & 83.94 ± 0.65 & 75.43 ± 0.52 & 68.14 ± 0.40 & 62.02 ± 0.36 & 57.43 ± 0.27 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
+
+\begin{table*}[htbp]
+\centering
+\caption{Speedup para diferentes números de \textit{threads} e diferentes entradas e tamanhos de palavra}
+\label{tab:speedup}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|c|c|c|c|c|c|c|c|c|c|c|c|}
+\toprule
+entrada/palavra & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & 11 & 12 \\
+\midrule
+\textbf{250/10} & 1.09 ± 0.00 & 2.13 ± 0.01 & 3.15 ± 0.01 & 4.14 ± 0.02 & 5.15 ± 0.03 & 6.19 ± 0.03 & 5.23 ± 0.02 & 5.90 ± 0.03 & 6.59 ± 0.03 & 6.58 ± 0.86 & 7.79 ± 0.51 & 8.51 ± 0.08 \\
+\textbf{250/128} & 1.09 ± 0.01 & 2.15 ± 0.02 & 3.15 ± 0.07 & 4.16 ± 0.04 & 5.12 ± 0.10 & 6.12 ± 0.06 & 5.05 ± 0.11 & 5.66 ± 0.06 & 6.30 ± 0.17 & 6.98 ± 0.07 & 7.55 ± 0.27 & 8.14 ± 0.23 \\
+\textbf{250/256} & 1.11 ± 0.01 & 2.19 ± 0.03 & 3.25 ± 0.04 & 4.23 ± 0.08 & 5.30 ± 0.11 & 6.28 ± 0.14 & 5.30 ± 0.08 & 5.92 ± 0.09 & 6.59 ± 0.10 & 7.27 ± 0.10 & 7.95 ± 0.15 & 8.55 ± 0.37 \\
+\textbf{500/10} & 1.09 ± 0.02 & 2.18 ± 0.03 & 3.23 ± 0.05 & 4.23 ± 0.14 & 5.32 ± 0.08 & 6.38 ± 0.09 & 5.32 ± 0.20 & 6.05 ± 0.09 & 6.70 ± 0.25 & 7.49 ± 0.10 & 8.19 ± 0.11 & 8.86 ± 0.13 \\
+\textbf{500/128} & 1.07 ± 0.00 & 2.12 ± 0.01 & 3.13 ± 0.03 & 4.13 ± 0.03 & 5.10 ± 0.05 & 6.09 ± 0.06 & 4.96 ± 0.04 & 5.59 ± 0.04 & 6.23 ± 0.05 & 6.89 ± 0.06 & 7.50 ± 0.06 & 8.12 ± 0.16 \\
+\textbf{500/256} & 1.10 ± 0.00 & 2.18 ± 0.01 & 3.22 ± 0.02 & 4.25 ± 0.03 & 5.29 ± 0.03 & 6.29 ± 0.05 & 5.22 ± 0.06 & 5.87 ± 0.05 & 6.55 ± 0.04 & 7.26 ± 0.04 & 7.91 ± 0.06 & 8.57 ± 0.12 \\
+\textbf{750/10} & 1.09 ± 0.01 & 2.16 ± 0.03 & 3.22 ± 0.03 & 4.24 ± 0.08 & 5.31 ± 0.05 & 6.35 ± 0.14 & 5.33 ± 0.06 & 6.00 ± 0.06 & 6.72 ± 0.09 & 7.45 ± 0.12 & 8.14 ± 0.15 & 8.75 ± 0.42 \\
+\textbf{750/128} & 1.06 ± 0.00 & 2.09 ± 0.01 & 3.10 ± 0.01 & 4.05 ± 0.02 & 5.04 ± 0.03 & 5.97 ± 0.03 & 4.82 ± 0.09 & 5.44 ± 0.05 & 6.09 ± 0.04 & 6.72 ± 0.04 & 7.37 ± 0.04 & 7.93 ± 0.08 \\
+\textbf{750/256} & 1.09 ± 0.00 & 2.16 ± 0.01 & 3.21 ± 0.02 & 4.24 ± 0.02 & 5.24 ± 0.03 & 6.24 ± 0.02 & 5.17 ± 0.06 & 5.79 ± 0.05 & 6.47 ± 0.06 & 7.15 ± 0.05 & 7.87 ± 0.04 & 8.48 ± 0.05 \\
+\textbf{1000/10} & 1.09 ± 0.01 & 2.15 ± 0.02 & 3.20 ± 0.03 & 4.25 ± 0.05 & 5.29 ± 0.07 & 6.36 ± 0.08 & 5.28 ± 0.05 & 5.97 ± 0.05 & 6.69 ± 0.06 & 7.41 ± 0.08 & 8.14 ± 0.08 & 8.77 ± 0.21 \\
+\textbf{1000/128} & 1.05 ± 0.00 & 2.07 ± 0.01 & 3.09 ± 0.01 & 4.09 ± 0.02 & 5.06 ± 0.02 & 6.03 ± 0.02 & 4.86 ± 0.08 & 5.43 ± 0.05 & 6.05 ± 0.05 & 6.72 ± 0.04 & 7.36 ± 0.05 & 7.96 ± 0.05 \\
+\textbf{1000/256} & 1.09 ± 0.00 & 2.15 ± 0.01 & 3.21 ± 0.02 & 4.25 ± 0.02 & 5.25 ± 0.02 & 6.25 ± 0.03 & 5.23 ± 0.05 & 5.82 ± 0.05 & 6.47 ± 0.04 & 7.16 ± 0.04 & 7.87 ± 0.05 & 8.50 ± 0.04 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
+
+\begin{table*}[htbp]
+\centering
+\caption{Eficiência para diferentes números de \textit{threads} e diferentes entradas e tamanhos de palavra}
+\label{tab:eficiencia}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|c|c|c|c|c|c|c|c|c|c|c|c|}
+\toprule
+entrada/palavra & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & 11 & 12 \\
+\midrule
+\textbf{500/128} & 1.07 ± 0.00 & 1.06 ± 0.01 & 1.04 ± 0.01 & 1.03 ± 0.01 & 1.02 ± 0.01 & 1.01 ± 0.01 & 0.71 ± 0.01 & 0.70 ± 0.01 & 0.69 ± 0.01 & 0.69 ± 0.01 & 0.68 ± 0.01 & 0.68 ± 0.01 \\
+\textbf{500/256} & 1.10 ± 0.00 & 1.09 ± 0.00 & 1.07 ± 0.01 & 1.06 ± 0.01 & 1.06 ± 0.01 & 1.05 ± 0.01 & 0.75 ± 0.01 & 0.73 ± 0.01 & 0.73 ± 0.00 & 0.73 ± 0.00 & 0.72 ± 0.01 & 0.71 ± 0.01 \\
+\textbf{750/128} & 1.06 ± 0.00 & 1.04 ± 0.01 & 1.03 ± 0.00 & 1.01 ± 0.00 & 1.01 ± 0.01 & 1.00 ± 0.00 & 0.69 ± 0.01 & 0.68 ± 0.01 & 0.68 ± 0.00 & 0.67 ± 0.00 & 0.67 ± 0.00 & 0.66 ± 0.01 \\
+\textbf{750/256} & 1.09 ± 0.00 & 1.08 ± 0.01 & 1.07 ± 0.01 & 1.06 ± 0.00 & 1.05 ± 0.01 & 1.04 ± 0.00 & 0.74 ± 0.01 & 0.72 ± 0.01 & 0.72 ± 0.01 & 0.72 ± 0.00 & 0.72 ± 0.00 & 0.71 ± 0.00 \\
+\textbf{1000/128} & 1.05 ± 0.00 & 1.04 ± 0.00 & 1.03 ± 0.00 & 1.02 ± 0.01 & 1.01 ± 0.00 & 1.01 ± 0.00 & 0.69 ± 0.01 & 0.68 ± 0.01 & 0.67 ± 0.01 & 0.67 ± 0.00 & 0.67 ± 0.00 & 0.66 ± 0.00 \\
+\textbf{1000/256} & 1.09 ± 0.00 & 1.08 ± 0.00 & 1.07 ± 0.01 & 1.06 ± 0.00 & 1.05 ± 0.00 & 1.04 ± 0.01 & 0.75 ± 0.01 & 0.73 ± 0.01 & 0.72 ± 0.00 & 0.72 ± 0.00 & 0.72 ± 0.00 & 0.71 ± 0.00 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
+
+\begin{table*}[htbp]
+\centering
+\caption{Máximo \textit{speedup} teórico de acordo com a Lei de amdahl para diferentes números de \textit{threads} e diferentes entradas e tamanhos de palavra}
+\label{tab:amdahl}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|c|c|c|c|c|}
+\toprule
+entrada/palavra & 2 & 4 & 8 & 12 & $\infty$ \\
+\midrule
+\textbf{250/10} & 2.00 ± 0.00 & 3.99 ± 0.00 & 7.98 ± 0.00 & 11.94 ± 0.00 & 2312.67 ± 67.79 \\
+\textbf{250/128} & 2.00 ± 0.00 & 4.00 ± 0.00 & 7.99 ± 0.00 & 11.98 ± 0.00 & 6993.01 ± 1371.35 \\
+\textbf{250/256} & 2.00 ± 0.00 & 4.00 ± 0.00 & 7.99 ± 0.00 & 11.99 ± 0.00 & 10198.88 ± 522.65 \\
+\textbf{500/10} & 2.00 ± 0.00 & 4.00 ± 0.00 & 7.99 ± 0.00 & 11.99 ± 0.00 & 9237.88 ± 359.92 \\
+\textbf{500/128} & 2.00 ± 0.00 & 4.00 ± 0.00 & 8.00 ± 0.00 & 11.99 ± 0.00 & 24154.59 ± 747.17 \\
+\textbf{500/256} & 2.00 ± 0.00 & 4.00 ± 0.00 & 8.00 ± 0.00 & 12.00 ± 0.00 & 32102.73 ± 8297.81 \\
+\textbf{750/10} & 2.00 ± 0.00 & 4.00 ± 0.00 & 8.00 ± 0.00 & 11.99 ± 0.00 & 19398.64 ± 1369.65 \\
+\textbf{750/128} & 2.00 ± 0.00 & 4.00 ± 0.00 & 8.00 ± 0.00 & 12.00 ± 0.00 & 50505.05 ± 2072.25 \\
+\textbf{750/256} & 2.00 ± 0.00 & 4.00 ± 0.00 & 8.00 ± 0.00 & 12.00 ± 0.00 & 58309.04 ± 24167.72 \\
+\textbf{1000/10} & 2.00 ± 0.00 & 4.00 ± 0.00 & 8.00 ± 0.00 & 12.00 ± 0.00 & 33783.78 ± 2085.88 \\
+\textbf{1000/128} & 2.00 ± 0.00 & 4.00 ± 0.00 & 8.00 ± 0.00 & 12.00 ± 0.00 & 82987.55 ± 1500.97 \\
+\textbf{1000/256} & 2.00 ± 0.00 & 4.00 ± 0.00 & 8.00 ± 0.00 & 12.00 ± 0.00 & 103626.94 ± 5121.96 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
+
+\begin{table*}[htbp]
+\centering
+\caption{Tamanhos das saídas para diferentes números de threads e diferentes entradas e tamanhos de palavra}
+\label{tab:tamanhos}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|c|c|c|c|c|c|c|c|c|c|c|c|c|}
+\toprule
+entrada/palavra & Sequencial & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & 11 & 12 \\
+\midrule
+\textbf{250/10} & 1597.00 ± 0.00 & 1597.00 ± 0.00 & 1597.30 ± 0.56 & 1597.10 ± 0.30 & 1597.10 ± 0.30 & 1597.10 ± 0.30 & 1597.15 ± 0.36 & 1597.60 ± 0.80 & 1597.25 ± 0.54 & 1597.05 ± 0.22 & 1597.05 ± 0.22 & 1597.25 ± 0.70 & 1597.05 ± 0.22 \\
+\textbf{250/128} & 31106.00 ± 0.00 & 31106.00 ± 0.00 & 31106.25 ± 1.30 & 31106.80 ± 1.12 & 31107.20 ± 1.40 & 31106.85 ± 1.28 & 31106.55 ± 0.97 & 31107.35 ± 1.31 & 31106.60 ± 0.80 & 31106.25 ± 0.83 & 31106.35 ± 1.15 & 31106.35 ± 1.11 & 31106.65 ± 1.11 \\
+\textbf{250/256} & 63120.00 ± 0.00 & 63120.00 ± 0.00 & 63119.85 ± 0.65 & 63120.25 ± 1.09 & 63119.10 ± 1.67 & 63119.85 ± 1.15 & 63119.35 ± 1.53 & 63120.50 ± 0.87 & 63119.90 ± 1.14 & 63119.45 ± 1.32 & 63119.60 ± 1.66 & 63118.95 ± 1.43 & 63118.50 ± 1.50 \\
+\textbf{500/10} & 2954.00 ± 0.00 & 2954.00 ± 0.00 & 2951.10 ± 0.44 & 2951.60 ± 0.97 & 2951.40 ± 0.97 & 2951.65 ± 0.96 & 2951.70 ± 1.14 & 2951.55 ± 1.16 & 2951.65 ± 0.91 & 2951.50 ± 0.97 & 2951.45 ± 0.86 & 2951.70 ± 1.10 & 2951.85 ± 1.11 \\
+\textbf{500/128} & 61979.00 ± 0.00 & 61979.00 ± 0.00 & 61979.00 ± 0.00 & 61979.45 ± 1.12 & 61979.00 ± 0.00 & 61979.55 ± 1.12 & 61979.00 ± 0.00 & 61979.35 ± 0.85 & 61979.50 ± 0.87 & 61979.00 ± 0.00 & 61979.30 ± 0.90 & 61979.20 ± 0.60 & 61979.00 ± 0.00 \\
+\textbf{500/256} & 125964.00 ± 0.00 & 125964.00 ± 0.00 & 125964.65 ± 1.31 & 125964.40 ± 0.97 & 125964.30 ± 0.90 & 125964.30 ± 0.90 & 125964.15 ± 0.48 & 125964.75 ± 1.30 & 125964.65 ± 1.35 & 125964.15 ± 0.36 & 125964.45 ± 1.20 & 125964.35 ± 1.15 & 125964.15 ± 0.48 \\
+\textbf{750/10} & 4273.00 ± 0.00 & 4273.00 ± 0.00 & 4273.25 ± 0.54 & 4273.10 ± 0.30 & 4273.00 ± 0.00 & 4273.05 ± 0.22 & 4273.15 ± 0.48 & 4273.05 ± 0.22 & 4273.10 ± 0.30 & 4273.20 ± 0.51 & 4273.00 ± 0.00 & 4273.15 ± 0.36 & 4273.00 ± 0.00 \\
+\textbf{750/128} & 92741.00 ± 0.00 & 92741.00 ± 0.00 & 92741.50 ± 1.02 & 92741.25 ± 1.09 & 92741.35 ± 0.79 & 92741.10 ± 0.30 & 92741.20 ± 0.68 & 92741.35 ± 0.79 & 92741.45 ± 0.74 & 92741.25 ± 0.54 & 92741.15 ± 0.48 & 92741.05 ± 0.22 & 92741.20 ± 0.68 \\
+\textbf{750/256} & 188713.00 ± 0.00 & 188713.00 ± 0.00 & 188713.05 ± 0.22 & 188713.00 ± 0.00 & 188713.00 ± 0.00 & 188713.10 ± 0.30 & 188713.10 ± 0.44 & 188713.00 ± 0.00 & 188713.10 ± 0.44 & 188713.05 ± 0.22 & 188713.10 ± 0.30 & 188713.20 ± 0.68 & 188713.00 ± 0.00 \\
+\textbf{1000/10} & 5505.00 ± 0.00 & 5505.00 ± 0.00 & 5503.75 ± 0.94 & 5503.10 ± 0.44 & 5503.45 ± 0.92 & 5503.30 ± 0.71 & 5503.20 ± 0.51 & 5503.00 ± 0.00 & 5503.45 ± 0.74 & 5503.20 ± 0.60 & 5503.25 ± 0.62 & 5503.55 ± 0.97 & 5503.30 ± 0.71 \\
+\textbf{1000/128} & 123494.00 ± 0.00 & 123494.00 ± 0.00 & 123494.25 ± 0.54 & 123494.10 ± 0.44 & 123494.00 ± 0.00 & 123494.00 ± 0.00 & 123494.40 ± 1.02 & 123494.35 ± 0.85 & 123494.05 ± 0.22 & 123494.20 ± 0.60 & 123494.25 ± 0.62 & 123494.05 ± 0.22 & 123494.10 ± 0.44 \\
+\textbf{1000/256} & 251484.00 ± 0.00 & 251484.00 ± 0.00 & 251481.35 ± 0.91 & 251481.45 ± 1.12 & 251481.90 ± 1.55 & 251482.10 ± 1.70 & 251481.40 ± 0.92 & 251481.45 ± 1.07 & 251482.05 ± 1.72 & 251481.75 ± 1.30 & 251481.95 ± 1.36 & 251481.65 ± 1.15 & 251481.20 ± 0.68 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}
+
+\section{Conclusão}
+\label{sec:conclusao}
+O objetivo deste trabalho foi paralelizar o algoritmo guloso para resolver o Problema da Supersequência Mais Curta e analisar os ganhos de desempenho. Além da implementação, o rigor metodológico teve grande relevância, criando um ambiente de experimentos controlado, com a desativação de otimizações de hardware e serviços do sistema, para garantir que os resultados fossem confiáveis e reprodutíveis.
+
+Essa abordagem permitiu medir o \textit{speedup} e a eficiência do algoritmo, além de observar efeitos da computação paralela, como o impacto do \textit{Simultaneous Multi-Threading} e a diferença entre o desempenho teórico, previsto pela Lei de Amdahl, e o desempenho real. Assim, o trabalho não se limitou à otimização do algoritmo, mas também contribuiu no desenvolvimento de habilidades fundamentais na pesquisa científica em computação, como a formulação de hipóteses, condução de experimentos e interpretação crítica de resultados.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
