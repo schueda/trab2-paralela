@@ -1,22 +1,35 @@
+#include <_stdio.h>
 #include <algorithm>
 #include <cstddef>
 #include <iostream>
 #include <omp.h>
+#include <queue>
 #include <string>
-#include <tuple>
 #include <utility>
 #include <vector>
 
-auto read_input() -> std::vector<std::string> {
-    std::vector<std::string> x;
+struct Word {
+    std::string word;
+    std::size_t og_pos;
+};
+
+struct Pair {
+    std::size_t i, j;
+    std::size_t og_i, og_j;
+    int overlap;
+    bool operator<(const Pair &o) const { return overlap < o.overlap; }
+};
+
+auto read_input() -> std::vector<Word> {
+    std::vector<Word> words;
     std::size_t n;
     std::cin >> n;
-    while (n--) {
+   for (size_t i = 0; i < n; i++) {
         std::string s;
         std::cin >> s;
-        x.emplace_back(s);
+        words.push_back(Word{s, i});
     }
-    return x;
+    return words;
 }
 
 auto overlap(const std::string& a, const std::string& b) -> int {
@@ -34,71 +47,66 @@ auto overlap(const std::string& a, const std::string& b) -> int {
     return 0;
 }
 
-auto highest_overlap(const std::vector<std::string>& words) -> std::tuple<std::size_t, std::size_t, int> {
-    int max_overlap = -1;
-    std::size_t max_i = 0, max_j = 0;
-    for (size_t i = 0; i < words.size(); i++) {
-        for (size_t j = 0; j < words.size(); j++) {
-            if (i == j) continue;
-            int ol = overlap(words[i], words[j]);
-            if (ol > max_overlap) {
-                max_i = i;
-                max_j = j;
-                max_overlap = ol;
-            }
-        }
-    }
-    return {max_i, max_j, max_overlap};
-}
-
-auto merge(std::string a, std::string b, int overlap) -> std::string {
-    return a + b.substr(overlap);
-}
-
-auto remove(std::vector<std::string>& words, size_t i, size_t j) -> void {
+auto remove(std::vector<Word>& words, size_t i, size_t j) -> void {
     if (j < i) std::swap(i, j);
     words[j] = words.back(); words.pop_back();
     words[i] = words.back(); words.pop_back();
 }
 
-auto insert(std::vector<std::string>& words, std::string new_word) -> void {
-    words.emplace_back(new_word);
+auto merge(Pair& pair, std::vector<Word>& words, std::vector<bool>& valids, std::priority_queue<Pair>& pq) -> void {
+    auto word_i = words[pair.i];
+    auto word_j = words[pair.j];
+    auto new_word = Word{word_i.word + word_j.word.substr(pair.overlap), valids.size()};
+    
+    remove(words, pair.i, pair.j);
+    valids[pair.og_i] = false;
+    valids[pair.og_j] = false;
+    
+    valids.push_back(true);
+    words.push_back(new_word);
+    
+    for (size_t i = 0; i < words.size() - 1; i++) {
+        int ol = overlap(words[i].word, new_word.word);
+        pq.emplace(Pair{i, words.size() - 1, words[i].og_pos, new_word.og_pos, ol});
+        
+        ol = overlap(new_word.word, words[i].word);
+        pq.emplace(Pair{words.size() - 1, i, new_word.og_pos, words[i].og_pos, ol});
+    }
+}
+
+
+auto calculate_initial_overlaps(std::vector<Word>& words) -> std::priority_queue<Pair> {
+    std::priority_queue<Pair> pq;
+    for (size_t i = 0; i < words.size(); i++) {
+        for (size_t j = 0; j < words.size(); j++) {
+            if (i == j) continue;
+            int ol = overlap(words[i].word, words[j].word);
+            pq.emplace(Pair{i, j, words[i].og_pos, words[j].og_pos, ol});
+        }
+    }
+    return pq;
 }
 
 auto main(int argc, char const *argv[]) -> int {
     auto words = read_input();
-    
-    #ifdef AMDAHL
-    double parallel_time = 0.0;
-    #endif
-    
+
     double start_time = omp_get_wtime();
+
+    auto pq = calculate_initial_overlaps(words);
+    std::vector<bool> valids(pq.size(), true);
+
     while (words.size() > 1) {
-        #ifdef AMDAHL
-        parallel_time -= omp_get_wtime();
-        #endif
-        auto tuple = highest_overlap(words);
-        #ifdef AMDAHL
-        parallel_time += omp_get_wtime();
-        #endif
-        
-        size_t i, j; int max_overlap;
-        std::tie(i, j, max_overlap) = tuple;
-        
-        std::string new_word = merge(words[i], words[j], max_overlap);
-        remove(words, i, j);
-        insert(words, new_word);
+        auto pair = pq.top(); pq.pop();
+        while (!valids[pair.og_i] || !valids[pair.og_j]) {
+            auto pair = pq.top(); pq.pop();
+        }
+            
+        merge(pair, words, valids, pq);
     }
     double total_time = omp_get_wtime() - start_time;
-    
-    #ifdef AMDAHL
-    double parallel_fraction = parallel_time / total_time;
-    std::cout << parallel_fraction << std::endl;
-    #else
-    if (words.size() > 0) std::cout << words[0] << std::endl;
+
+    if (words.size() > 0) std::cout << words[0].word << std::endl;
     std::cerr << total_time << std::endl;
-    #endif
-    
-    
+
     return 0;
 }
