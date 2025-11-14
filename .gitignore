@@ -12,6 +12,7 @@
 *.fls
 greedy_ssp
 p_greedy_ssp
+gpu_greedy_ssp
 amdahl_greedy_ssp
 __pycache__
 inputs

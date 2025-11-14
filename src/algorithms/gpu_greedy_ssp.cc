@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -18,7 +19,7 @@ struct MaxOverlap {
 
 #pragma omp declare reduction( \
     max_with_index : MaxOverlap : \
-    omp_out = omp_in.val > omp_out.val ? omp_in : omp_out \
+    omp_out = omp_in.value > omp_out.value ? omp_in : omp_out \
 ) initializer( \
     omp_priv = {-1, 0, 0} \
 )
@@ -100,7 +101,7 @@ MaxOverlap max_overlap(const std::vector<int16_t>& overlaps, size_t n) {
     MaxOverlap max_result = {-1, 0, 0};
 
     #pragma omp target teams distribute parallel for \
-        map(to: overlaps_ptr[0:n], n) \
+        map(to: overlaps_ptr[0:n*n], n) \
         reduction(max_with_index : max_result)
     for (size_t i = 0; i < n * n; i++) {
         const int16_t current_val = overlaps_ptr[i];
@@ -110,7 +111,7 @@ MaxOverlap max_overlap(const std::vector<int16_t>& overlaps, size_t n) {
             max_result.j = i % n;
         }
     }
-    
+
     return max_result;
 }
 
@@ -129,31 +130,38 @@ auto main(int argc, char const *argv[]) -> int {
     initialize_overlaps(overlaps, words);
 
     while (words.size() > 1) {
-        auto max_ol = max_overlap(overlaps, words.size());
-        
+        auto max_ol = max_overlap(overlaps, n);
+
         std::string new_word = merge(words[max_ol.i], words[max_ol.j], max_ol.value);
-        
-        words[max_ol.i] = new_word;
-        std::swap(words[max_ol.j], words[words.size() - 1]);
+
+        size_t st = std::min(max_ol.i, max_ol.j);
+        size_t nd = std::max(max_ol.i, max_ol.j);
+
+        words[st] = new_word;
+        std::swap(words[nd], words[words.size() - 1]);
         words.pop_back();
-        
+
         size_t k;
-        for (k = 0; k < words.size() + 1; k++)
-            overlaps[IDX(max_ol.j, k, n)] = overlaps[IDX(words.size(), k, n)];
-        
-        for (k = 0; k < words.size(); k++)
-            overlaps[IDX(k, max_ol.j, n)] = overlaps[IDX(k, words.size(), n)];
-        
+        for (k = 0; k < words.size() + 1; k++) {
+            overlaps[IDX(nd, k, n)] = overlaps[IDX(words.size(), k, n)];
+            overlaps[IDX(words.size(), k, n)] = -1;
+        }
+
+        for (k = 0; k < words.size(); k++){
+            overlaps[IDX(k, nd, n)] = overlaps[IDX(k, words.size(), n)];
+            overlaps[IDX(k, words.size(), n)] = -1;
+        }
+
         for (k = 0; k < words.size(); k++) {
-            if (max_ol.i == k) {
-                overlaps[IDX(max_ol.i, k, n)] = -1;
+            if (st == k) {
+                overlaps[IDX(st, k, n)] = -1;
                 continue;
             }
-            overlaps[IDX(max_ol.i, k, n)] = overlap(words[max_ol.i].c_str(), words[max_ol.i].size(), words[k].c_str(), words[k].size());
-            overlaps[IDX(k, max_ol.i, n)] = overlap(words[k].c_str(), words[k].size(), words[max_ol.i].c_str(), words[max_ol.i].size()); 
+            overlaps[IDX(st, k, n)] = overlap(words[st].c_str(), words[st].size(), words[k].c_str(), words[k].size());
+            overlaps[IDX(k, st, n)] = overlap(words[k].c_str(), words[k].size(), words[st].c_str(), words[st].size());
         }
     }
-    
+
     double end_time = omp_get_wtime();
     std::cerr << end_time - start_time << std::endl;
 
