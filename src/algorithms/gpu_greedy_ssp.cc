@@ -119,47 +119,50 @@ auto merge(std::string a, std::string b, int overlap) -> std::string {
     return a + b.substr(overlap);
 }
 
+void calculate_new_overlaps(std::vector<int16_t>& overlaps, std::vector<std::string>& words, size_t st, size_t nd, size_t ogn) {
+    auto wn = words.size();
+
+    size_t k;
+    for (k = 0; k < words.size() + 1; k++) {
+        overlaps[IDX(nd, k, ogn)] = overlaps[IDX(words.size(), k, ogn)];
+        overlaps[IDX(words.size(), k, ogn)] = -1;
+    }
+
+    for (k = 0; k < words.size(); k++){
+        overlaps[IDX(k, nd, ogn)] = overlaps[IDX(k, words.size(), ogn)];
+        overlaps[IDX(k, words.size(), ogn)] = -1;
+    }
+
+    for (k = 0; k < words.size(); k++) {
+        if (st == k) {
+            overlaps[IDX(st, k, ogn)] = -1;
+            continue;
+        }
+        overlaps[IDX(st, k, ogn)] = overlap(words[st].c_str(), words[st].size(), words[k].c_str(), words[k].size());
+        overlaps[IDX(k, st, ogn)] = overlap(words[k].c_str(), words[k].size(), words[st].c_str(), words[st].size());
+    }
+}
+
 auto main(int argc, char const *argv[]) -> int {
     auto words = read_input();
-    auto n = words.size();
+    auto ogn = words.size();
 
     double start_time = omp_get_wtime();
 
-    std::vector<int16_t> overlaps(n*n);
-
+    std::vector<int16_t> overlaps(ogn*ogn);
     initialize_overlaps(overlaps, words);
 
     while (words.size() > 1) {
-        auto max_ol = max_overlap(overlaps, n);
+        auto max_ol = max_overlap(overlaps, ogn);
 
         std::string new_word = merge(words[max_ol.i], words[max_ol.j], max_ol.value);
-
         size_t st = std::min(max_ol.i, max_ol.j);
         size_t nd = std::max(max_ol.i, max_ol.j);
-
         words[st] = new_word;
         std::swap(words[nd], words[words.size() - 1]);
         words.pop_back();
 
-        size_t k;
-        for (k = 0; k < words.size() + 1; k++) {
-            overlaps[IDX(nd, k, n)] = overlaps[IDX(words.size(), k, n)];
-            overlaps[IDX(words.size(), k, n)] = -1;
-        }
-
-        for (k = 0; k < words.size(); k++){
-            overlaps[IDX(k, nd, n)] = overlaps[IDX(k, words.size(), n)];
-            overlaps[IDX(k, words.size(), n)] = -1;
-        }
-
-        for (k = 0; k < words.size(); k++) {
-            if (st == k) {
-                overlaps[IDX(st, k, n)] = -1;
-                continue;
-            }
-            overlaps[IDX(st, k, n)] = overlap(words[st].c_str(), words[st].size(), words[k].c_str(), words[k].size());
-            overlaps[IDX(k, st, n)] = overlap(words[k].c_str(), words[k].size(), words[st].c_str(), words[st].size());
-        }
+        calculate_new_overlaps(overlaps, words, st, nd, ogn);
     }
 
     double end_time = omp_get_wtime();
