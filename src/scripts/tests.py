@@ -7,8 +7,7 @@ def main():
     _ = os.system("make -C ../algorithms")
     _ = os.system('echo "1" | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo')
     _ = os.system("sudo service bluetooth stop")
-    _ = os.system("sudo ip link set enxacde48001122 down")
-    _ = os.system("sudo ip link set wlp5s0 down")
+    _ = os.system("sudo ip link set wlp2s0 down")
 
     os.makedirs("results", exist_ok=True)
     os.makedirs("outputs", exist_ok=True)
@@ -40,8 +39,7 @@ def main():
 
     _ = os.system('echo "0" | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo')
     _ = os.system("sudo service bluetooth start")
-    _ = os.system("sudo ip link set enxacde48001122 up")
-    _ = os.system("sudo ip link set wlp5s0 up")
+    _ = os.system("sudo ip link set wlp2s0 up")
 
 
 if __name__ == "__main__":

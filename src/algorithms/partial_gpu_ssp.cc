@@ -120,8 +120,6 @@ auto merge(std::string a, std::string b, int overlap) -> std::string {
 }
 
 void calculate_new_overlaps(std::vector<int16_t>& overlaps, std::vector<std::string>& words, size_t st, size_t nd, size_t ogn) {
-    auto wn = words.size();
-
     size_t k;
     for (k = 0; k < words.size() + 1; k++) {
         overlaps[IDX(nd, k, ogn)] = overlaps[IDX(words.size(), k, ogn)];

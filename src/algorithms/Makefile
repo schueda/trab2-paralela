@@ -1,11 +1,11 @@
 .PHONY = all clean bin
 
-all : bin amdahl_greedy_ssp
+all : bin
 
-bin : greedy_ssp gpu_greedy_ssp
+bin : greedy_ssp gpu_greedy_ssp partial_gpu_ssp
 
 clean:
-	rm -rf greedy_ssp gpu_greedy_ssp amdahl_greedy_ssp
+	rm -rf greedy_ssp gpu_greedy_ssp partial_gpu_ssp
 
 greedy_ssp: greedy_ssp.cc
 	$(CXX) -std=c++11 -Wall -O3 -fopenmp greedy_ssp.cc -o greedy_ssp

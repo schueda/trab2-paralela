@@ -13,6 +13,6 @@
 greedy_ssp
 p_greedy_ssp
 gpu_greedy_ssp
-amdahl_greedy_ssp
+partial_gpu_ssp
 __pycache__
 inputs
