@@ -2,8 +2,8 @@ import random
 from os import makedirs
 
 valid_chars = ["A", "C", "G", "T"]
-input_sizes = [1000, 5000, 10000, 20000]
-word_sizes = [10, 128, 256]
+input_sizes = [1000, 3000, 5000, 7000]
+word_sizes = [10, 64, 128, 256]
 
 
 def main():
