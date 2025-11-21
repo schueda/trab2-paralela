@@ -133,46 +133,13 @@ void calculate_new_overlaps(std::vector<int16_t>& overlaps, std::vector<std::str
         overlaps[IDX(k, words.size(), ogn)] = -1;
     }
 
-    const size_t n = words.size();
-    if (n == 0) return;
-
-    std::vector<size_t> lengths(n);
-    std::vector<size_t> offsets(n);
-    size_t total_chars = 0;
-
-    for (size_t i = 0; i < n; ++i) {
-        lengths[i] = words[i].length();
-        offsets[i] = total_chars;
-        total_chars += lengths[i];
-    }
-    total_chars += n;
-
-    std::vector<char> all_words_buffer(total_chars);
-    char* all_words_ptr = all_words_buffer.data();
-
-    for (size_t i = 0; i < n; ++i) {
-        offsets[i] += i;
-        memcpy(all_words_ptr + offsets[i], words[i].c_str(), lengths[i] + 1);
-    }
-
-    int16_t* overlaps_ptr = overlaps.data();
-    size_t* lengths_ptr = lengths.data();
-    size_t* offsets_ptr = offsets.data();
-
-    #pragma omp target teams distribute parallel for \
-        map(to: n, st, lengths_ptr[0:n], offsets_ptr[0:n], all_words_ptr[0:total_chars]) \
-        map(from: overlaps_ptr[0:n*n])
-    for (size_t k = 0; k < words.size(); k++) {
+    for (k = 0; k < words.size(); k++) {
         if (st == k) {
-            overlaps_ptr[IDX(st, k, ogn)] = -1;
+            overlaps[IDX(st, k, ogn)] = -1;
             continue;
         }
-        const char* s1 = all_words_ptr + offsets_ptr[st];
-        const char* s2 = all_words_ptr + offsets_ptr[k];
-        size_t len1 = lengths_ptr[st];
-        size_t len2 = lengths_ptr[k];
-        overlaps_ptr[IDX(st, k, ogn)] = overlap(s1, len1, s2, len2);
-        overlaps_ptr[IDX(k, st, ogn)] = overlap(s2, len2, s1, len1);
+        overlaps[IDX(st, k, ogn)] = overlap(words[st].c_str(), words[st].size(), words[k].c_str(), words[k].size());
+        overlaps[IDX(k, st, ogn)] = overlap(words[k].c_str(), words[k].size(), words[st].c_str(), words[st].size());
     }
 }
 

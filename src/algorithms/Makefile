@@ -13,5 +13,5 @@ greedy_ssp: greedy_ssp.cc
 gpu_greedy_ssp: gpu_greedy_ssp.cc
 	$(CXX) -std=c++11 -Wall -O3 -fno-lto -fopenmp -fstack-protector gpu_greedy_ssp.cc -o gpu_greedy_ssp
 
-amdahl_greedy_ssp: greedy_ssp.cc
-	$(CXX) -std=c++11 -Wall -O3 -fopenmp -DAMDAHL greedy_ssp.cc -o amdahl_greedy_ssp
+partial_gpu_ssp: partial_gpu_ssp.cc
+	$(CXX) -std=c++11 -Wall -O3 -fno-lto -fopenmp -fstack-protector partial_gpu_ssp.cc -o partial_gpu_ssp
